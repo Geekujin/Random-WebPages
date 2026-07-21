@@ -1,5 +1,4 @@
-## A Collection of some static projects and dashboards
-
+## A Collection of some basic web projects and tools
 ---
 
 - [Redcar Beach Sewage](/beaches.html): Check whether there have been any recent sewage discharges into the North Sea
