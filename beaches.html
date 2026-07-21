@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discharge & Water Quality Dashboard</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #121212; color: #e0e0e0; padding: 2rem; max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; padding-bottom: 1rem; margin-bottom: 2rem; }
+        button { padding: 10px 20px; background: #333; color: white; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #444; }
+        input[type="text"] { padding: 10px; background: #222; color: #fff; border: 1px solid #555; border-radius: 4px; width: 250px; margin-right: 10px; }
+        
+        /* Dashboard Grid Layout */
+        .group-container { margin-bottom: 3rem; background: #1a1a1a; padding: 1.5rem; border-radius: 8px; border: 1px solid #2a2a2a; }
+        .group-title { margin-top: 0; color: #00bcd4; font-size: 1.4rem; padding-bottom: 1rem; border-bottom: 1px solid #333; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; margin-top: 1rem; }
+        
+        /* Cards */
+        .card { background: #242424; padding: 1.25rem; border-radius: 6px; border-left: 5px solid gray; display: flex; flex-direction: column; }
+        .site-name { font-weight: bold; font-size: 1.1rem; margin-bottom: 0.25rem; }
+        .site-id { color: #777; font-size: 0.85rem; margin-bottom: 1rem; font-family: monospace; }
+        .timestamp { font-size: 0.9rem; color: #aaa; margin-top: auto; padding-top: 1rem; border-top: 1px dashed #444; }
+        
+        /* Dynamic Status Colors */
+        .spilling { border-left-color: #f44336; }
+        .normal { border-left-color: #4caf50; }
+        .offline { border-left-color: #ff9800; }
+        .lab { border-left-color: #00bcd4; }
+        
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; margin-bottom: 0.5rem; width: max-content; }
+        .badge.spilling { background: rgba(244, 67, 54, 0.2); color: #ff5252; }
+        .badge.normal { background: rgba(76, 175, 80, 0.2); color: #81c784; }
+        .badge.offline { background: rgba(255, 152, 0, 0.2); color: #ffb74d; }
+
+        .loader { border: 3px solid #333; border-top: 3px solid #00bcd4; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <!-- LIVE DISCHARGE SECTION -->
+    <div class="header">
+        <h2 style="margin: 0;">Live Outfall Dashboard</h2>
+        <button onclick="fetchDischargeData()">Refresh Live Data</button>
+    </div>
+    <div id="discharge-results"></div>
+
+
+    <!-- EA LAB RESULTS SECTION -->
+    <div class="header" style="margin-top: 4rem;">
+        <h2 style="margin: 0;">Environment Agency Lab Tests</h2>
+        <div>
+            <input type="text" id="samplingPointInput" placeholder="Enter Sampling Point ID" value="06500">
+            <button onclick="fetchLabData()">Get Lab Results</button>
+        </div>
+    </div>
+    <div id="lab-results" class="grid"></div>
+
+
+    <script>
+        // =========================================================
+        // CONFIGURATION (Map your custom groups here)
+        // =========================================================
+        const SITE_GROUPS = [
+            {
+                groupName: "Redcar",
+                // Replace these example IDs with the real ones from your F12 Console
+                siteIds: ["NWL01292", "NWL00769", "NWL00930", "NWL00606", "NWL00970", "NWL00233"] 
+            },
+            {
+                groupName: "Marske",
+                siteIds: ["NWL00856", "NWL01376", "NWL00715"]
+            }
+        ];
+
+        // Trigger live feeds automatically when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchDischargeData();
+            fetchLabData(); // Auto-load the default EA lab ID
+        });
+
+        // =========================================================
+        // 1. LIVE DISCHARGE LOGIC
+        // =========================================================
+        async function fetchDischargeData() {
+            const resultsDiv = document.getElementById('discharge-results');
+            resultsDiv.innerHTML = '<div style="padding: 1rem;"><div class="loader"></div> Fetching live status...</div>';
+
+            const url = 'https://services-eu1.arcgis.com/MSNNjkZ51iVh8yBj/arcgis/rest/services/Northumbrian_Water_Storm_Overflow_Activity_2_view/FeatureServer/0/query';
+            const params = new URLSearchParams({ where: "1=1", outFields: "Id,Status,StatusStart,LatestEventStart,LatestEventEnd,ReceivingWaterCourse", f: "json" });
+
+            try {
+                const response = await fetch(`${url}?${params}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                resultsDiv.innerHTML = ''; 
+
+                // DISCOVERY TOOL (Press F12 to find local Site IDs)
+                const localDiscovery = data.features
+                    .filter(s => s.attributes.ReceivingWaterCourse && s.attributes.ReceivingWaterCourse.match(/North Sea|River Tees|Coatham|Marske|Saltburn/i))
+                    .map(s => `ID: "${s.attributes.Id}" -> ${s.attributes.ReceivingWaterCourse}`);
+                console.log("🛠️ LOCAL SITES FOUND: USE THESE IDs IN YOUR CONFIG:\n" + localDiscovery.join('\n'));
+
+                SITE_GROUPS.forEach(group => {
+                    const groupFeatures = data.features.filter(f => group.siteIds.includes(String(f.attributes.Id)));
+                    let html = `<div class="group-container"><h3 class="group-title">${group.groupName}</h3><div class="grid">`;
+                    
+                    if (groupFeatures.length === 0) {
+                        html += `<p style="color: #666; font-style: italic;">Awaiting configuration. Add valid IDs to see this group.</p>`;
+                    } else {
+                        groupFeatures.forEach(site => {
+                            const attr = site.attributes;
+                            let status = { text: "❔ Unknown", css: "offline" };
+                            if (attr.Status === 1) status = { text: "🚨 ACTIVELY DISCHARGING", css: "spilling" };
+                            if (attr.Status === 0) status = { text: "✅ Normal", css: "normal" };
+                            if (attr.Status === -1) status = { text: "⚠️ Monitor Offline", css: "offline" };
+                            
+                            let spillDate = attr.LatestEventStart ? new Date(attr.LatestEventStart).toLocaleString('en-GB') : 'No recent events';
+
+                            html += `
+                                <div class="card ${status.css}">
+                                    <div class="site-name">${attr.ReceivingWaterCourse || 'Unnamed Location'}</div>
+                                    <div class="site-id">Site ID: ${attr.Id}</div>
+                                    <div class="badge ${status.css}">${status.text}</div>
+                                    <div class="timestamp"><strong>Latest Spill:</strong><br>${spillDate}</div>
+                                </div>
+                            `;
+                        });
+                    }
+                    html += `</div></div>`;
+                    resultsDiv.innerHTML += html;
+                });
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="group-container" style="border-color: #f44336;"><p style="color: #ff5252;">Error loading data: ${error.message}</p></div>`;
+            }
+        }
+
+        // =========================================================
+        // 2. EA LAB RESULTS LOGIC
+        // =========================================================
+        async function fetchLabData() {
+            const samplingId = document.getElementById('samplingPointInput').value.trim();
+            const labResultsDiv = document.getElementById('lab-results');
+            
+            if (!samplingId) return;
+            labResultsDiv.innerHTML = '<div style="padding: 1rem;"><div class="loader"></div> Fetching lab results...</div>';
+
+            // The EA's NEW 2026 API Endpoint
+            const url = `https://environment.data.gov.uk/water-quality/data/observation`;
+            
+            // The new API uses 'pointNotation' and 'limit' (no underscores)
+            const params = new URLSearchParams({
+                pointNotation: samplingId,
+                limit: 10
+            });
+
+            try {
+                // The new API prefers an Accept header to strictly return JSON
+                const response = await fetch(`${url}?${params}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                
+                labResultsDiv.innerHTML = '';
+
+                if (!data.items || data.items.length === 0) {
+                    labResultsDiv.innerHTML = `<p style="color: #666; font-style: italic; width: 100%;">No recent lab results found for ID ${samplingId}.</p>`;
+                    return;
+                }
+
+                data.items.forEach(item => {
+                    // Extracting data using the new API's JSON structure
+                    const date = item.phenomenonTime ? new Date(item.phenomenonTime).toLocaleDateString('en-GB') : 'Unknown Date';
+                    
+                    // The new Linked Data structure sometimes nests names under 'prefLabel'
+                    const chemical = item.determinand?.prefLabel || item.determinand || "Unknown Chemical";
+                    const result = item.result;
+                    const unit = item.unit?.prefLabel || item.unit || "";
+
+                    labResultsDiv.innerHTML += `
+                        <div class="card lab">
+                            <div class="site-name">${chemical}</div>
+                            <div style="font-size: 1.5rem; font-weight: bold; margin: 10px 0; color: #fff;">
+                                ${result} <span style="font-size: 1rem; color: #aaa;">${unit}</span>
+                            </div>
+                            <div style="font-size: 0.9rem; color: #888;">
+                                <strong>Date:</strong> ${date}
+                            </div>
+                        </div>
+                    `;
+                });
+
+            } catch (error) {
+                labResultsDiv.innerHTML = `<p style="color: #ff5252; padding: 1rem;">Error loading lab data. The Environment Agency API rejected the request.</p>`;
+                console.error("EA API Error:", error);
+            }
+        }
+    </script>
+</body>
+</html>
