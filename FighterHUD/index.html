@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fighter Jet HUD</title>
+  
+  <!-- Load Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Load React and ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Load Babel to compile JSX in the browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-black m-0 p-0 overflow-hidden">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // Inline SVG Icons
+    const RadarIcon = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 5.49A10 10 0 0 0 14 21.36"/><path d="M20.48 10.47a10 10 0 0 0-4.04-4.04"/><path d="M17.48 15a10 10 0 0 0-3.04-3.04"/><path d="M12 12v.01"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M2 12h2"/><path d="M20 12h2"/></svg>;
+    const CrosshairIcon = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="6" y2="2"/><line x1="12" x2="12" y1="22" y2="18"/></svg>;
+    const RocketIcon = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>;
+    const ZapIcon = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
+    const ShieldAlertIcon = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>;
+
+    const SOUNDS = {
+      select: "./Move.wav",
+      error: "./Warning.wav",
+      gun: "https://actions.google.com/sounds/v1/weapons/machine_gun_burst.ogg",
+      missile: "https://actions.google.com/sounds/v1/weapons/rocket_launch.ogg",
+      radar: "https://actions.google.com/sounds/v1/alarms/sonar_ping.ogg",
+	  flare: "./Move.wav"
+    };
+
+    const SYSTEMS = {
+      radar: { id: 'radar', name: 'RADAR (A/A)', icon: RadarIcon, type: 'sensor' },
+      gun: { id: 'gun', name: '20MM VULCAN', icon: CrosshairIcon, type: 'weapon', maxAmmo: 500, sound: 'gun' },
+      missiles: { id: 'missiles', name: 'AIM-9X', icon: RocketIcon, type: 'weapon', maxAmmo: 4, sound: 'missile' },
+      flares: { id: 'flares', name: 'CM: FLARES', icon: ZapIcon, type: 'countermeasure', maxAmmo: 30, sound: 'error' }
+    };
+
+    function App() {
+      const [activeSystem, setActiveSystem] = useState('radar');
+      const [inventory, setInventory] = useState({
+        gun: 500,
+        missiles: 4,
+        flares: 30
+      });
+      
+      const [isActionActive, setIsActionActive] = useState(false);
+      const audioRef = useRef(new Audio());
+
+      const playSound = (soundKey) => {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          audioRef.current.src = SOUNDS[soundKey];
+          audioRef.current.play().catch(e => console.log("Audio play prevented:", e));
+        }
+      };
+
+      const handleSelect = (id) => {
+        setActiveSystem(id);
+        playSound('select');
+      };
+
+      const handleAction = () => {
+        const system = SYSTEMS[activeSystem];
+        
+        if (system.type === 'sensor') {
+          playSound('radar');
+          setIsActionActive(true);
+          setTimeout(() => setIsActionActive(false), 1000);
+          return;
+        }
+
+        if (inventory[activeSystem] > 0) {
+          playSound(system.sound);
+          setIsActionActive(true);
+          
+          const ammoReduction = activeSystem === 'gun' ? 25 : 1;
+          
+          setInventory(prev => ({
+            ...prev,
+            [activeSystem]: Math.max(0, prev[activeSystem] - ammoReduction)
+          }));
+          
+          setTimeout(() => setIsActionActive(false), 300);
+        } else {
+          playSound('error');
+        }
+      };
+
+      const RadarGraphic = () => (
+        <div className="relative w-64 h-64 border-2 border-green-500 rounded-full overflow-hidden flex items-center justify-center">
+          <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
+            <div className="border-r border-b border-green-500/30"></div>
+            <div className="border-b border-green-500/30"></div>
+            <div className="border-r border-green-500/30"></div>
+            <div></div>
+          </div>
+          <div className="absolute w-48 h-48 border border-green-500/40 rounded-full"></div>
+          <div className="absolute w-32 h-32 border border-green-500/40 rounded-full"></div>
+          <div className={`absolute w-32 h-32 origin-bottom-right border-r-2 border-green-400 bg-gradient-to-tr from-transparent to-green-500/20 top-0 left-0 ${isActionActive ? 'animate-spin' : 'animate-[spin_4s_linear_infinite]'}`} style={{ animationDuration: isActionActive ? '1s' : '4s' }}></div>
+          <div className="absolute top-1/4 right-1/3 w-3 h-3 bg-red-500 rounded-sm animate-pulse"></div>
+        </div>
+      );
+
+      const GunGraphic = () => (
+        <div className="relative w-full h-full flex flex-col items-center justify-center">
+          <div className={`relative w-48 h-48 border-2 border-green-500 rounded-full flex items-center justify-center transition-transform ${isActionActive ? 'scale-95 border-red-500' : ''}`}>
+            <div className="absolute w-full h-px bg-green-500/50"></div>
+            <div className="absolute h-full w-px bg-green-500/50"></div>
+            <div className="w-4 h-4 border-2 border-green-500 rounded-full"></div>
+            <div className="absolute top-1/4 w-2 h-2 bg-green-500"></div>
+            <div className="absolute bottom-1/4 w-2 h-2 bg-green-500"></div>
+            <div className="absolute left-1/4 w-2 h-2 bg-green-500"></div>
+            <div className="absolute right-1/4 w-2 h-2 bg-green-500"></div>
+          </div>
+          <div className="mt-8 text-2xl tracking-widest text-green-400 font-bold">
+            GUN: {inventory.gun}
+          </div>
+          {inventory.gun === 0 && <div className="text-red-500 animate-pulse mt-2">BINGO AMMO</div>}
+        </div>
+      );
+
+      const MissileGraphic = () => (
+        <div className="relative w-full h-full flex flex-col items-center justify-center">
+          <div className={`relative w-40 h-40 border-4 border-green-500 flex items-center justify-center transition-all ${isActionActive ? 'scale-110 border-red-500' : ''}`}>
+            <div className="absolute -top-4 -left-4 w-6 h-6 border-t-4 border-l-4 border-green-500"></div>
+            <div className="absolute -top-4 -right-4 w-6 h-6 border-t-4 border-r-4 border-green-500"></div>
+            <div className="absolute -bottom-4 -left-4 w-6 h-6 border-b-4 border-l-4 border-green-500"></div>
+            <div className="absolute -bottom-4 -right-4 w-6 h-6 border-b-4 border-r-4 border-green-500"></div>
+            <div className="w-16 h-16 border-2 border-green-500 border-dashed rounded-full animate-[spin_3s_linear_infinite]"></div>
+            <div className="absolute text-green-500 font-bold tracking-widest">LOCK</div>
+          </div>
+          <div className="mt-12 text-2xl tracking-widest text-green-400 font-bold flex gap-4">
+            {[...Array(SYSTEMS.missiles.maxAmmo)].map((_, i) => (
+              <RocketIcon key={i} className={`w-8 h-8 ${i < inventory.missiles ? 'text-green-500' : 'text-gray-800'}`} />
+            ))}
+          </div>
+          <div className="mt-4 text-xl text-green-500">QTY: {inventory.missiles}</div>
+        </div>
+      );
+
+      const FlareGraphic = () => (
+        <div className="relative w-full h-full flex flex-col items-center justify-center">
+           <div className={`relative w-48 h-48 border-2 border-green-500 flex items-center justify-center ${isActionActive ? 'bg-white/20' : ''}`}>
+            <ShieldAlertIcon className="w-24 h-24 text-green-500" />
+           </div>
+           <div className="mt-8 text-2xl tracking-widest text-green-400 font-bold">
+            FLARES: {inventory.flares}
+          </div>
+          <div className="w-64 h-4 border border-green-500 mt-4">
+            <div 
+              className="h-full bg-green-500 transition-all duration-300" 
+              style={{ width: `${(inventory.flares / SYSTEMS.flares.maxAmmo) * 100}%` }}
+            ></div>
+          </div>
+        </div>
+      );
+
+      return (
+        <div className="min-h-screen bg-black text-green-500 font-mono flex items-center justify-center p-4 select-none">
+          <style dangerouslySetInnerHTML={{__html: `
+            .hud-text { text-shadow: 0 0 8px rgba(34, 197, 94, 0.8); }
+            .scanline {
+              background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,255,0,0.1) 50%, rgba(0,255,0,0.1));
+              background-size: 100% 4px;
+            }
+          `}} />
+
+          <div className="w-full max-w-6xl aspect-video bg-gray-950 border-4 border-gray-800 rounded-lg p-2 relative flex gap-4 overflow-hidden shadow-[0_0_50px_rgba(34,197,94,0.1)]">
+            <div className="absolute inset-0 scanline pointer-events-none z-50 mix-blend-overlay"></div>
+
+            <div className="w-32 flex flex-col justify-around py-8 z-10 border-r border-green-900/50 pr-2">
+              {['radar', 'flares'].map(sysId => {
+                const sys = SYSTEMS[sysId];
+                const Icon = sys.icon;
+                return (
+                  <button
+                    key={sysId}
+                    onClick={() => handleSelect(sysId)}
+                    className={`flex flex-col items-center justify-center p-4 border-2 rounded ${activeSystem === sysId ? 'border-green-400 bg-green-900/40 text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.6)]' : 'border-green-900/50 hover:border-green-700 hover:bg-green-900/20'} transition-all`}
+                  >
+                    <Icon className="mb-2 w-8 h-8" />
+                    <span className="text-xs text-center font-bold tracking-wider">{sys.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex-1 relative border border-green-800/50 rounded flex items-center justify-center p-4">
+              <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-green-500 m-2"></div>
+              <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-green-500 m-2"></div>
+              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-green-500 m-2"></div>
+              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-green-500 m-2"></div>
+
+              <div className="w-full h-full flex flex-col items-center justify-center">
+                {activeSystem === 'radar' && <RadarGraphic />}
+                {activeSystem === 'gun' && <GunGraphic />}
+                {activeSystem === 'missiles' && <MissileGraphic />}
+                {activeSystem === 'flares' && <FlareGraphic />}
+
+                <button 
+                  onPointerDown={handleAction}
+                  className={`absolute bottom-8 px-8 py-3 border-2 border-green-500 rounded font-bold tracking-widest uppercase transition-all hud-text
+                    ${isActionActive ? 'bg-red-600 border-red-500 text-white shadow-[0_0_30px_rgba(220,38,38,0.8)]' : 'bg-green-950 hover:bg-green-900 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]'}
+                  `}
+                >
+                  {SYSTEMS[activeSystem].type === 'weapon' ? 'FIRE TRIGGER' : 'ACTIVATE'}
+                </button>
+              </div>
+
+              <div className="absolute top-4 w-full px-8 flex justify-between text-sm hud-text">
+                <span>MACH 1.2</span>
+                <span className="text-red-400 animate-pulse">{activeSystem !== 'radar' && 'MASTER ARM: ON'}</span>
+                <span>ALT 15,200</span>
+              </div>
+            </div>
+
+            <div className="w-32 flex flex-col justify-around py-8 z-10 border-l border-green-900/50 pl-2">
+               {['gun', 'missiles'].map(sysId => {
+                const sys = SYSTEMS[sysId];
+                const Icon = sys.icon;
+                return (
+                  <button
+                    key={sysId}
+                    onClick={() => handleSelect(sysId)}
+                    className={`flex flex-col items-center justify-center p-4 border-2 rounded ${activeSystem === sysId ? 'border-green-400 bg-green-900/40 text-green-300 shadow-[0_0_15px_rgba(34,197,94,0.6)]' : 'border-green-900/50 hover:border-green-700 hover:bg-green-900/20'} transition-all`}
+                  >
+                    <Icon className="mb-2 w-8 h-8" />
+                    <span className="text-xs text-center font-bold tracking-wider">{sys.name}</span>
+                    <span className="text-[10px] mt-1 text-green-600">QTY: {inventory[sysId]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
