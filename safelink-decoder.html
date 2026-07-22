@@ -1,0 +1,938 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<!-- Version 1.2 -->
+	<title>Outlook SafeLinks Decoder</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://cdn.jsdelivr.net/gh/letieu/terminal.css@v0.0.4/index.js"></script>
+	<style>
+		@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap");
+
+		/* CSS VARIABLES */
+		:root {
+		  --terminal-bg: #050505;
+		  --terminal-fg: #cccccc;
+		  --terminal-bg-old: #ffffff;
+
+		  /* ANSI Palette */
+		  --terminal-black: #000000;
+		  --terminal-red: #ff5555;
+		  --terminal-green: #50fa7b;
+		  --terminal-yellow: #f1fa8c;
+		  --terminal-blue: #bd93f9;
+		  --terminal-magenta: #ff79c6;
+		  --terminal-cyan: #8be9fd;
+		  --terminal-white: #ffffff;
+		  --terminal-orange: #ffaf00;
+		  --terminal-bright-red: #ff6e6e;
+		  --terminal-bright-green: #69ff9e;
+		  --terminal-bright-yellow: #ffffa5;
+		  --terminal-bright-blue: #d6a2ff;
+		  --terminal-bright-magenta: #ff92df;
+		  --terminal-bright-cyan: #a4f3ff;
+		  --terminal-bright-black: #2a2b30;
+		  --terminal-bright-white: #f8f8f2;
+		  
+		  /* Thirteen Palette */
+		  --terminal-thirteen-coral: #FE645E;
+		  --terminal-thirteen-yellow: #FBC74A;
+		  --terminal-thirteen-purple: #3D1152;
+		  --terminal-thirteen-blue: #54C0E8;
+		  --terminal-thirteen-grey: #B3B8BF;
+		  --terminal-thirteen-violet: #6237C8;
+		  --terminal-thirteen-aqua: #4AD4A8;
+
+
+		  /* Semantic Colors */
+		  --primary: var(--terminal-thirteen-blue);
+		  --danger: var(--terminal-red);
+		  --success: var(--terminal-green);
+		  --warning: var(--terminal-yellow);
+		  --info: var(--terminal-blue);
+		  --link: var(--terminal-cyan);
+		  --border-color: #333333;
+		  --surface: #000000;
+		  --muted: #666666;
+		}
+
+		* {
+		  box-sizing: border-box;
+		}
+
+		body {
+		  margin: 0;
+		  padding: 0;
+		  background-color: var(--terminal-bg);
+		  color: var(--terminal-fg);
+		  font-family: "JetBrains Mono", monospace;
+		  font-size: 14px;
+		  line-height: 1.5;
+		  -webkit-font-smoothing: none;
+		}
+
+		::selection {
+		  background: var(--primary);
+		  color: var(--terminal-black);
+		}
+
+		h1,
+		h2,
+		h3,
+		h4,
+		h5,
+		h6 {
+		  margin: 0;
+		  font-weight: bold;
+		  line-height: 1.2;
+		}
+
+		p {
+		  margin: 0 0 1em 0;
+		}
+
+		a {
+		  color: var(--link);
+		  text-decoration: none;
+		}
+
+		a:hover {
+		  text-decoration: underline;
+		}
+
+		hr {
+		  border: none;
+		  border-top: 1px solid var(--border-color);
+		  margin: 16px 0;
+		}
+
+		.title {
+		  font-weight: bold;
+		  color: var(--primary);
+		  text-transform: uppercase;
+		  margin-bottom: 16px;
+		  letter-spacing: 1px;
+		}
+
+		.title.is-1 {
+		  font-size: 2.5rem;
+		  line-height: 1.1;
+		}
+
+		.title.is-2 {
+		  font-size: 2rem;
+		  line-height: 1.1;
+		}
+
+		.title.is-3 {
+		  font-size: 1.75rem;
+		  line-height: 1.2;
+		}
+
+		.title.is-4 {
+		  font-size: 1.5rem;
+		  line-height: 1.2;
+		}
+
+		.title.is-5 {
+		  font-size: 1.25rem;
+		  line-height: 1.3;
+		}
+
+		.title.is-6 {
+		  font-size: 1rem;
+		  line-height: 1.3;
+		}
+
+		.subtitle {
+		  font-weight: normal;
+		  color: var(--muted);
+		  margin-bottom: 16px;
+		}
+
+		.subtitle.is-1 {
+		  font-size: 2rem;
+		}
+
+		.subtitle.is-2 {
+		  font-size: 1.75rem;
+		}
+
+		.subtitle.is-3 {
+		  font-size: 1.5rem;
+		}
+
+		.subtitle.is-4 {
+		  font-size: 1.25rem;
+		}
+
+		.subtitle.is-5 {
+		  font-size: 1rem;
+		}
+
+		.subtitle.is-6 {
+		  font-size: 0.875rem;
+		}
+
+		.list {
+		  list-style: none;
+		  padding: 0;
+		  margin: 0;
+		  border: 1px solid var(--border-color);
+		}
+
+		.list a {
+			color:var(--link);
+			text-decoration: none;
+		}
+
+		.list a:hover {
+			color:var(--link);
+			text-decoration: underline;
+		}
+
+		.list-item {
+		  padding: 12px 16px;
+		  border-bottom: 1px solid var(--border-color);
+		  display: flex;
+		  align-items: center;
+		  gap: 12px;
+		  transition: all 0.2s;
+		}
+
+		.list-item:last-child {
+		  border-bottom: none;
+		}
+
+		.list-item:hover {
+		  background: rgba(139, 233, 253, 0.1);
+		  border-left: 2px solid var(--primary);
+		  padding-left: 14px;
+		  color: var(--primary);
+		}
+
+		.list-item.is-active {
+		  background: rgba(139, 233, 253, 0.1);
+		  border-left: 2px solid var(--primary);
+		  padding-left: 14px;
+		  font-weight: bold;
+		  color: var(--primary);
+		}
+
+		.list-item-icon {
+		  flex-shrink: 0;
+		  color: var(--primary);
+		  font-size: 1.2em;
+		}
+
+		.list-item-content {
+		  flex: 1;
+		}
+
+		.list-item-title {
+		  font-weight: bold;
+		  margin-bottom: 4px;
+		}
+
+		.list-item-description {
+		  font-size: 0.875rem;
+		  color: var(--muted);
+		}
+
+		.list-item-meta {
+		  flex-shrink: 0;
+		  font-size: 0.75rem;
+		  color: var(--muted);
+		  text-align: right;
+		}
+
+		/* Unordered list styles */
+		ul.content {
+		  list-style: none;
+		  padding-left: 0;
+		}
+
+		ul.content li {
+		  padding-left: 20px;
+		  position: relative;
+		  margin-bottom: 8px;
+		}
+
+		ul.content li::before {
+		  content: "▸";
+		  color: var(--primary);
+		  position: absolute;
+		  left: 0;
+		  font-weight: bold;
+		}
+
+		ul.content a {
+			text-decoration: underline;
+		}
+
+		ul.content a:hover {
+			color:var(--link);
+			text-decoration: none;
+		}
+
+		/* Ordered list styles */
+		ol.content {
+		  padding-left: 0;
+		  counter-reset: item;
+		  list-style: none;
+		}
+
+		ol.content li {
+		  padding-left: 28px;
+		  position: relative;
+		  margin-bottom: 8px;
+		  counter-increment: item;
+		}
+
+		ol.content li::before {
+		  content: counter(item) ".";
+		  color: var(--primary);
+		  position: absolute;
+		  left: 0;
+		  font-weight: bold;
+		}
+
+		.terminal {
+		  display: flex;
+		  flex-direction: column;
+		  border: 1px solid var(--border-color);
+		  width: 100%;
+		  max-width: 100%;
+		}
+
+		.terminal-header {
+		  background: var(--surface);
+		  border-bottom: 1px solid var(--border-color);
+		  padding: 8px 12px;
+		  font-weight: bold;
+		  text-transform: uppercase;
+		  letter-spacing: 1px;
+		  display: flex;
+		  align-items: center;
+		  justify-content: flex-start;
+		}
+
+		.terminal-body {
+		  background: var(--terminal-bg);
+		  position: relative;
+		  overflow: hidden;
+		  padding: 16px;
+		}
+
+		.terminal-body a {
+			color:var(--link);
+			text-decoration: none;
+		}
+
+		.terminal-body a:hover {
+			text-decoration: underline;	
+		}
+		.container {
+		  width: 100%;
+		  max-width: 1200px;
+		  margin: 0 auto;
+		  padding: 16px;
+		}
+
+		.section {
+		  padding: 32px 0;
+		}
+
+		.button {
+		  background: var(--surface);
+		  border: 1px solid var(--border-color);
+		  color: var(--terminal-fg);
+		  border-radius: 0;
+		  cursor: pointer;
+		  padding: 8px 16px;
+		  text-transform: uppercase;
+		  font-size: 0.85rem;
+		  font-weight: bold;
+		  display: inline-flex;
+		  align-items: center;
+		  justify-content: center;
+		  gap: 8px;
+		  font-family: inherit;
+		  text-decoration: none;
+		  line-height: 1.2;
+		  vertical-align: middle;
+		  transition: none;
+		}
+
+		.button:hover {
+		  background: var(--border-color);
+		}
+
+		.button.is-primary {
+		  background: var(--primary);
+		  color: var(--terminal-black);
+		  border-color: var(--primary);
+		}
+
+		.button.is-primary:hover {
+		  background: var(--terminal-white);
+		  border-color: var(--terminal-white);
+		}
+
+		.button.is-menu {
+		  background: transparent;
+		  border-color: var(--primary);
+		  color: var(--primary);
+		}
+
+		.button.is-menu:hover {
+		  background: var(--primary);
+		  border-color: var(--terminal-black);
+		  color: var(--terminal-black)
+		}
+
+		.button.is-danger {
+		  background: transparent;
+		  border-color: var(--danger);
+		  color: var(--danger);
+		}
+
+		.button.is-danger:hover {
+		  background: var(--danger);
+		  color: var(--terminal-black);
+		}
+
+		.button.is-success {
+		  background: transparent;
+		  border-color: var(--success);
+		  color: var(--success);
+		}
+
+		.button.is-success:hover {
+		  background: var(--success);
+		  color: var(--terminal-black);
+		}
+
+		.button.is-warning {
+		  background: transparent;
+		  border-color: var(--warning);
+		  color: var(--warning);
+		}
+
+		.button.is-warning:hover {
+		  background: var(--warning);
+		  color: var(--terminal-black);
+		}
+
+		.button.is-info {
+		  background: transparent;
+		  border-color: var(--info);
+		  color: var(--info);
+		}
+
+		.button.is-info:hover {
+		  background: var(--info);
+		  color: var(--terminal-black);
+		}
+
+		.field {
+		  margin-bottom: 16px;
+		}
+
+		.label {
+		  display: block;
+		  font-size: 0.875rem;
+		  font-weight: bold;
+		  margin-bottom: 8px;
+		}
+
+		.control {
+		  background: var(--terminal-bg);
+		  border: 1px solid var(--border-color);
+		  border-radius: 0;
+		  display: flex;
+		  align-items: center;
+		  padding: 4px;
+		}
+
+		.control:focus-within {
+		  border-color: var(--primary);
+		}
+
+		.input,
+		.textarea {
+		  background: transparent;
+		  border: none;
+		  outline: none !important;
+		  color: var(--terminal-fg);
+		  font-family: inherit;
+		  width: 100%;
+		  padding: 2px 4px;
+		}
+
+		.input::placeholder,
+		.textarea::placeholder {
+		  color: var(--muted);
+		  text-transform: uppercase;
+		  font-size: 0.8em;
+		}
+
+		.select {
+		  background: transparent;
+		  border: none;
+		  outline: none !important;
+		  color: var(--terminal-fg);
+		  font-family: inherit;
+		  width: 100%;
+		  padding: 2px 4px;
+		}
+
+
+		.card {
+		  background: var(--terminal-bg);
+		  border: 1px solid var(--border-color);
+		  border-radius: 0;
+		  position: relative;
+		  margin-bottom: 16px;
+		  display: block;
+		}
+
+		.card:hover {
+		  border-color: var(--primary);
+		}
+
+		.card.is-selected {
+		  border: 1px double var(--primary);
+		  box-shadow: inset 0 0 0 1px var(--primary);
+		}
+
+		.card-header {
+		  padding: 12px 16px;
+		  border-bottom: 1px solid var(--border-color);
+		}
+
+		.card-header-title {
+		  font-weight: bold;
+		  color: var(--primary);
+		  text-transform: uppercase;
+		  margin: 0;
+		}
+
+		.card-content {
+		  padding: 16px;
+		  color: var(--terminal-fg);
+		}
+
+		.card-footer {
+		  padding: 12px 16px;
+		  border-top: 1px solid var(--border-color);
+		}
+
+		.table {
+		  width: 100%;
+		  border-collapse: collapse;
+		}
+
+		.table th {
+		  text-align: left;
+		  border-bottom: 1px solid var(--border-color);
+		  color: var(--primary);
+		  text-transform: uppercase;
+		  font-size: 0.8rem;
+		  padding: 8px;
+		}
+
+		.table td {
+		  padding: 8px;
+		  border-right: 1px solid transparent;
+		}
+
+		.table tr:hover,
+		.table tr.is-selected {
+		  background-color: var(--primary);
+		  color: var(--terminal-black);
+		  font-weight: bold;
+		}
+
+		.table tr.is-selected td {
+		  border-right-color: var(--terminal-black);
+		}
+
+		.terminal-log {
+		  background: var(--terminal-bg);
+		  border: 1px solid var(--border-color);
+		  padding: 12px;
+		  font-family: "JetBrains Mono", monospace;
+		  overflow-y: auto;
+		  max-height: 400px;
+		}
+
+		.terminal-log-line,
+		.log-line {
+		  display: flex;
+		  gap: 12px;
+		  margin-bottom: 4px;
+		  font-size: 0.875rem;
+		}
+
+		.terminal-log-time {
+		  color: var(--muted);
+		  flex-shrink: 0;
+		}
+
+		.terminal-log-level {
+		  flex-shrink: 0;
+		  font-weight: bold;
+		}
+
+		.terminal-log-message {
+		  color: var(--terminal-fg);
+		}
+
+		.terminal-log-message:hover {
+		  color: var(--terminal-fg);
+		}
+
+		.terminal-log-line a {
+			text-decoration: none;
+		}
+
+		.terminal-log-line a:hover {
+			color: var(--terminal-fg);
+			background: var(--primary);
+			text-decoration: none;
+		}
+
+		.has-text-primary {
+		  color: var(--primary) !important;
+		}
+
+		.has-text-danger {
+		  color: var(--danger) !important;
+		}
+
+		.has-text-success {
+		  color: var(--success) !important;
+		}
+
+		.has-text-warning {
+		  color: var(--warning) !important;
+		}
+
+		.has-text-info {
+		  color: var(--info) !important;
+		}
+
+		.has-text-muted {
+		  color: var(--muted) !important;
+		}
+
+		.has-text-white {
+		  color: var(--terminal-white) !important;
+		}
+
+		.has-background-dark {
+		  background-color: var(--surface) !important;
+		}
+
+
+		.toast-container {
+		  position: fixed;
+		  top: 20px;
+		  right: 20px;
+		  z-index: 9999;
+		  display: flex;
+		  flex-direction: column;
+		  gap: 12px;
+		  max-width: 400px;
+		}
+
+		.toast {
+		  background: var(--surface);
+		  border: 1px solid var(--border-color);
+		  border-left-width: 4px;
+		  padding: 16px;
+		  min-width: 300px;
+		  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+		  animation: toast-slide-in 0.3s ease-out;
+		  position: relative;
+		  display: flex;
+		  align-items: flex-start;
+		  gap: 12px;
+		}
+
+		.toast.is-dismissing {
+		  animation: toast-slide-out 0.3s ease-in forwards;
+		}
+
+		@keyframes toast-slide-in {
+		  from {
+			transform: translateX(400px);
+			opacity: 0;
+		  }
+		  to {
+			transform: translateX(0);
+			opacity: 1;
+		  }
+		}
+
+		@keyframes toast-slide-out {
+		  from {
+			transform: translateX(0);
+			opacity: 1;
+		  }
+		  to {
+			transform: translateX(400px);
+			opacity: 0;
+		  }
+		}
+
+		.toast-icon {
+		  font-size: 1.2em;
+		  flex-shrink: 0;
+		  margin-top: 2px;
+		}
+
+		.toast-content {
+		  flex: 1;
+		}
+
+		.toast-title {
+		  font-weight: bold;
+		  margin-bottom: 4px;
+		  text-transform: uppercase;
+		  font-size: 0.875rem;
+		}
+
+		.toast-message {
+		  font-size: 0.875rem;
+		  color: var(--muted);
+		  line-height: 1.4;
+		}
+
+		.toast-close {
+		  background: transparent;
+		  border: none;
+		  color: var(--muted);
+		  cursor: pointer;
+		  font-size: 1.2em;
+		  padding: 0;
+		  width: 20px;
+		  height: 20px;
+		  display: flex;
+		  align-items: center;
+		  justify-content: center;
+		  flex-shrink: 0;
+		  font-family: inherit;
+		}
+
+		.toast-close:hover {
+		  color: var(--terminal-fg);
+		}
+
+		/* Toast variants */
+		.toast.is-primary {
+		  border-left-color: var(--primary);
+		}
+
+		.toast.is-primary .toast-icon,
+		.toast.is-primary .toast-title {
+		  color: var(--primary);
+		}
+
+		.toast.is-danger {
+		  border-left-color: var(--danger);
+		}
+
+		.toast.is-danger .toast-icon,
+		.toast.is-danger .toast-title {
+		  color: var(--danger);
+		}
+
+		.toast.is-success {
+		  border-left-color: var(--success);
+		}
+
+		.toast.is-success .toast-icon,
+		.toast.is-success .toast-title {
+		  color: var(--success);
+		}
+
+		.toast.is-warning {
+		  border-left-color: var(--warning);
+		}
+
+		.toast.is-warning .toast-icon,
+		.toast.is-warning .toast-title {
+		  color: var(--warning);
+		}
+
+		.toast.is-info {
+		  border-left-color: var(--info);
+		}
+
+		.toast.is-info .toast-icon,
+		.toast.is-info .toast-title {
+		  color: var(--info);
+		}
+	</style>
+</head>
+<body class="min-h-screen p-0 md:p-2">
+	<!-- DIV USED FOR TOAST POPUPS -->
+	<div class="toast-container" id="toastContainer"></div>
+	
+	<!-- MAIN TITLE AND SUBTITLE -->
+	<div class="navbar-brand title is-4 text-center mb-0 mt-5">
+		<br>
+		<h2 class="title is-2 has-terminal-glow"><span class="has-text-white">//</span>Outlook SafeLinks Decoder</h2>
+	</div>
+	<div class="subtitle is-4 text-center mt-0 mb-5">
+		<em>Converts encoded safelinks URLs back to plaintext</em>
+	</div>
+	<br>
+	
+	<div class="terminal max-w-6xl mx-auto mb-20">
+		<!-- TERMINAL WINDOW TITLE BAR -->
+		<div class="terminal-header">
+			<div class="flex flex-row gap-2">
+				<div class="w-3 h-3 rounded-full bg-red-500"></div>
+				<div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+				<div class="w-3 h-3 rounded-full bg-green-500"></div>
+			</div>
+		</div>
+		<!-- MAIN WINDOW BODY -->
+		<div class="terminal-body">
+			<br>
+			<p>This tool works on Microsoft SafeLinks and also decodes anything after a <span class="has-text-warning">?url=</span> parameter in other URLs</p><br>
+			<p>Paste URL below and click <b class="has-text-primary">Decode</b></p>
+			<br>
+			<div class="field">
+				<label class="label">SafeLinks URL:</label>
+				<div class="control">
+					<span class="has-text-primary" style="padding: 0 8px">$</span>
+					<input type="text" class="input" id="inputUrl" autofocus>
+				</div>
+			</div>
+			<br>
+			<div class="field">
+				<button class="button is-primary" onclick="decodeSafeLink()">Decode</button>
+			</div>
+				
+			<div id="output"></div>
+		</div>	
+
+		<script>
+			function decodeSafeLink() {
+				const input = document.getElementById("inputUrl").value.trim();
+				const output = document.getElementById("output");
+
+				// ERROR IF FORM BLANK
+				if (!input) {
+					output.innerHTML = `
+						<br>
+						<h4 class="has-text-danger title is-4">Error</h4>
+						<p>Please enter a URL.</p>
+						<br>
+					`;
+				return;
+				}
+
+				try {
+					const urlObj = new URL(input);
+					const encodedTarget = urlObj.searchParams.get("url");
+					
+					// ERROR IF URL NOT SAFELINK
+					if (!encodedTarget) {
+					  output.innerHTML = `
+						<br>
+						<h4 class="title is-4 has-text-warning">Error</h4>
+						<p>URL is not a Safelink URL</p>
+						<br>
+					  `;
+					  return;
+					}
+
+					// DECODED URL
+					const decoded = decodeURIComponent(encodedTarget);
+
+					// SUCCESSFUL SAFELINK DECODE
+					output.innerHTML = `
+						<br>
+						<h4 class="has-text-success title is-4">Success</h4>
+						<p>The URL is:</p>
+						<br>
+						
+						<div class="card is-selected" id="urlPreviewCard">
+							<div class="card-content">
+								<span class="has-text-info" id="decodedUrl"></span>
+							</div>
+						</div>
+						
+						<div class="mt-4 flex gap-3">
+							<button class="button is-info" onclick="copyDecodedUrl()">Copy URL</button>
+							<button class="button is-success" onclick="openDecodedUrl()">Open URL</button>
+						</div>
+
+						<br>	
+					`;
+
+					// Inject decoded URL
+					document.getElementById("decodedUrl").textContent = decoded;
+
+				} catch (e) {
+					output.innerHTML = `
+						<br>
+						<h4 class="has-text-danger title is-4">Error</h4>
+						<p>Invalid URL format</p>
+						<br>
+					`;
+				}
+			}
+			
+			
+			function copyDecodedUrl() {
+				const url = document.getElementById("decodedUrl")?.textContent?.trim();
+				// SHOW ERROR IF NO DECODED URL
+				if (!url) {
+					showToast('danger', 'Error', 'No decoded URL to copy.');
+					return;
+				}
+
+				navigator.clipboard.writeText(url)
+					.then(() => {
+						// SUCCESS
+						showToast('success', 'Success', 'URL copied to clipboard');
+					})
+					.catch(() => {
+						// FAILURE
+						showToast('danger', 'Failed', 'Could not copy URL to clipboard');
+					});
+				}
+
+			function openDecodedUrl() {
+				const url = document.getElementById("decodedUrl")?.textContent;
+				if (!url) return;
+
+				window.open(url, "_blank");
+			}
+		</script>
+	</div>
+	
+	<div class="max-w-6xl mx-auto mb-20 card">
+		<div class="card-header">
+			<h4 class="has-text-primary"><span class="has-text-white">//</span>About</h4>
+		</div>
+		<div class="card-content">
+			<p>This webpage requires javascript enabled to run, and calls external resources from:</p><br>
+			<ul class="content">
+				<li><a href="https://cdn.tailwindcss.com" target="_blank">Tailwind CSS</a></li>
+				<li><a href="https://cdn.jsdelivr.net/gh/letieu/terminal.css@v0.0.4/index.js" target="_blank">Letieu's Terminal CSS JS library</a></li>
+				<li><a href="https://fonts.googleapis.com" target="_blank">Google Fonts API</a></li>
+			</ul>
+		</div>
+	</div>
+	
+</body>
+</html>
+
+
