@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Service Status Dashboard</title>
+
+<style>
+
+:root{
+    --green:#22c55e;
+    --blue:#3b82f6;
+    --amber:#f59e0b;
+    --orange:#f97316;
+    --red:#ef4444;
+    --purple:#a855f7;
+}
+
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+    font-family:"Segoe UI",sans-serif;
+}
+
+body{
+    background:#0b101c;
+    color:#fff;
+    min-height:100vh;
+    padding:30px;
+}
+
+.container{
+    max-width:1600px;
+    margin:auto;
+}
+
+h1{
+    text-align:center;
+    margin-bottom:25px;
+    font-size:2.2rem;
+}
+
+/* Provider Layout */
+
+.providers-grid{
+    display:grid;
+    gap:25px;
+}
+
+/* Provider Card */
+
+.provider-card{
+    border-radius:20px;
+    overflow:hidden;
+    background:linear-gradient(135deg,#0f172a,#1e293b);
+    box-shadow:0 10px 25px rgba(0,0,0,.3);
+}
+
+/* Provider Header */
+
+.provider-header{
+    padding:20px;
+}
+
+.provider-name{
+    font-size:.9rem;
+    text-transform:uppercase;
+    letter-spacing:2px;
+    opacity:.9;
+    margin-bottom:8px;
+}
+
+.provider-link{
+    color:white;
+    text-decoration:none;
+    opacity:.85;
+    font-size:1rem;
+	font-weight:600;
+}
+
+.provider-link:hover{
+    opacity:1;
+    text-decoration:underline;
+}
+
+.provider-status{
+    font-size:2rem;
+    font-weight:700;
+    margin-bottom:8px;
+}
+
+.provider-updated{
+    opacity:.85;
+    font-size:.9rem;
+}
+
+/* Body */
+
+.provider-body{
+    padding:20px;
+}
+
+/* Service Section */
+
+.service-section{
+    margin-bottom:25px;
+}
+
+.service-section:last-child{
+    margin-bottom:0;
+}
+
+.service-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:15px;
+
+    margin-bottom:12px;
+    padding-bottom:12px;
+
+    border-bottom:1px solid rgba(255,255,255,.1);
+}
+
+.service-name{
+    font-size:1.05rem;
+    font-weight:600;
+}
+
+.service-items{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+}
+
+/* Components */
+.service-item{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:10px;
+    align-items:center;
+
+    padding:10px 12px;
+
+    border-radius:12px;
+
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.08);
+}
+
+.service-item-name{
+    font-size:.9rem;
+    line-height:1.35;
+}
+
+/* Accordion Styling */
+.provider-header,
+.service-header{
+    cursor:pointer;
+    user-select:none;
+}
+
+.provider-header:hover,
+.service-header:hover{
+    filter:brightness(1.05);
+}
+
+.collapsible-title{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.chevron{
+    display:inline-block;
+    transition:transform .2s ease;
+}
+
+.provider-card.collapsed .provider-body{
+    display:none;
+}
+
+.service-section.collapsed .service-body{
+    display:none;
+}
+
+.provider-card.collapsed .provider-chevron{
+    transform:rotate(-90deg);
+}
+
+.service-section.collapsed .service-chevron{
+    transform:rotate(-90deg);
+}
+
+
+/* Status Badges */
+.badge{
+    padding:5px 10px;
+    border-radius:20px;
+    font-size:.8rem;
+    font-weight:600;
+    min-width:120px;
+    text-align:center;
+}
+
+/* Status Colours */
+
+.operational{
+    background:linear-gradient(135deg,#16a34a,#22c55e);
+}
+
+.maintenance{
+    background:linear-gradient(135deg,#2563eb,#60a5fa);
+}
+
+.degraded{
+    background:linear-gradient(135deg,#d97706,#fbbf24);
+}
+
+.partial{
+    background:linear-gradient(135deg,#ea580c,#fb923c);
+}
+
+.outage{
+    background:linear-gradient(135deg,#dc2626,#ef4444);
+}
+
+.security{
+    background:linear-gradient(135deg,#7e22ce,#a855f7);
+}
+
+.unknown{
+    background:linear-gradient(135deg,#64748b,#94a3b8);
+}
+
+/* Footer */
+
+.footer{
+    margin-top:25px;
+    text-align:center;
+    opacity:.8;
+}
+
+/* Mobile */
+
+@media (max-width:768px){
+
+    .service-items{
+        grid-template-columns:1fr;
+    }
+
+    .provider-status{
+        font-size:1.5rem;
+    }
+
+}
+
+
+
+</style>
+</head>
+
+<body>
+<div class="container">
+    <h1>Service Status Dashboard</h1>
+    <div id="providersContainer" class="providers-grid"></div>
+    <div class="footer">
+        Last Refreshed:
+        <span id="refreshTime">Loading...</span>
+    </div>
+</div>
+<script>
+
+/*****************************************************************
+ CONFIG
+*****************************************************************/
+
+const PROVIDERS = [
+    {
+        name: "Mimecast",
+        type: "mimecast",
+        url: "https://9498199887151372.hostedstatus.com/1.0/status/5d849b1c02e65b3ec45369d4"
+    },
+
+    {
+        name: "KnowBe4",
+        type: "statuspage",
+        url: "https://status.knowbe4.com/api/v2/summary.json"
+    },
+	{
+		name: "Tenable",
+		type: "statuspage",
+		url: "https://status.tenable.com/api/v2/summary.json"
+	},
+	{
+        name: "Cloudflare",
+        type: "statuspage",
+        url: "https://www.cloudflarestatus.com/api/v2/summary.json"
+    }
+	/*
+    Future Examples
+    {
+        name: "Microsoft 365",
+        type: "custom",
+        url: "..."
+    }
+    */
+];
+
+/* Status code mapping */
+
+function getStatusClass(code){
+    switch(code){
+        case 100:
+            return "operational";
+        case 200:
+            return "maintenance";
+        case 300:
+            return "degraded";
+        case 400:
+            return "partial";
+        case 500:
+            return "outage";
+        case 600:
+            return "security";
+        default:
+            return "unknown";
+    }
+}
+
+/* Converts Atlassian Status Page status text to numeric codes */
+function statusPageToCode(status){
+    switch(status){
+        case "operational":
+            return 100;
+        case "under_maintenance":
+            return 200;
+        case "degraded_performance":
+            return 300;
+        case "partial_outage":
+            return 400;
+        case "major_outage":
+            return 500;
+        default:
+            return 0;
+    }
+}
+
+/* Status Page  severity level */
+function indicatorToCode(indicator){
+    switch(indicator){
+        case "none":
+            return 100;
+        case "maintenance":
+            return 200;
+        case "minor":
+            return 400;
+        case "major":
+            return 500;
+        case "critical":
+            return 500;
+        default:
+            return 0;
+    }
+}
+
+/* Formats feed data from Mimecast */
+function buildMimecastProvider(data){
+    const ukServices = data.result.status.filter(service =>
+        [
+            "United Kingdom Grid",
+            "United Kingdom - Email Security, Cloud Integrated"
+        ].includes(service.name)
+    );
+
+    return {
+        name: "Mimecast",
+		url: "https://status.mimecast.com",
+        overall: {
+            status: data.result.status_overall.status,
+            status_code: data.result.status_overall.status_code,
+            updated: data.result.status_overall.updated
+        },
+        services: ukServices
+    };
+}
+
+/* Formats Status Page feed data */
+function buildStatuspageProvider(data){
+    const groups = data.components.filter(
+        component => component.group === true
+    );
+
+    const services = groups.map(group => {
+        const children = data.components.filter(
+            component =>
+                component.group_id === group.id
+        );
+        return {
+            name: group.name,
+            status: group.status,
+            status_code:
+                statusPageToCode(group.status),
+            containers:
+                children.map(child => ({
+                    name: child.name,
+                    status: child.status,
+                    status_code:
+                        statusPageToCode(
+                            child.status
+                        )
+                }))
+        };
+    });
+
+    const standaloneServices =
+        data.components.filter(
+            component =>
+                !component.group &&
+                component.group_id === null
+        );
+		
+    if(standaloneServices.length){
+        services.push({
+            name: "Additional Services",
+            status: "operational",
+            status_code: 100,
+            containers:
+                standaloneServices.map(service => ({
+                    name: service.name,
+                    status: service.status,
+                    status_code:
+                        statusPageToCode(
+                            service.status
+                        )
+                }))
+        });
+    }
+    return {
+        name: data.page.name,
+		url: data.page.url,
+        overall: {
+            status: data.status.description,
+            status_code: indicatorToCode(
+                 data.status.indicator
+                ),
+            updated: data.page.updated_at
+        },
+        services
+    };
+}
+
+function renderProvider(provider){
+    return `
+        <div class="provider-card collapsed">
+            <div class="provider-header ${getStatusClass(provider.overall.status_code)}">
+                <div class="collapsible-title">
+					<span class="chevron provider-chevron">
+						▼
+					</span>
+					<div class="provider-name">
+						${provider.name}
+					</div>
+				</div>
+                <div class="provider-status">
+                    ${provider.overall.status}
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;">
+					<div class="provider-updated">
+						Updated:
+						${new Date(provider.overall.updated)
+							.toLocaleString("en-GB")}
+					</div>
+
+					<a class="provider-link" href="${provider.url}" target="_blank" onclick="event.stopPropagation();">View Status Page ↗</a>
+				</div>
+            </div>
+            <div class="provider-body">
+                ${provider.services.map(service => `
+                    <div class="service-section collapsed">
+                        <div class="service-header">
+                            <div class="collapsible-title">
+								<span class="chevron service-chevron">
+									▼
+								</span>
+								<div class="service-name">
+									${service.name}
+								</div>
+							</div>
+                            <div class="badge ${getStatusClass(service.status_code)}">
+                                ${service.status}
+                            </div>
+                        </div>
+						<div class="service-body">
+							<div class="service-items">
+								${service.containers.map(component => `
+									<div class="service-item">
+										<div class="service-item-name">
+											${component.name}
+										</div>
+										<div class="badge ${getStatusClass(component.status_code)}">
+											${component.status}
+										</div>
+									</div>
+								`).join("")}
+							</div>
+						</div>
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+    `;
+}
+
+function initializeCollapsibles(){
+    document
+        .querySelectorAll(".provider-header")
+        .forEach(header => {
+            header.addEventListener("click", () => {
+                header
+                    .closest(".provider-card")
+                    .classList
+                    .toggle("collapsed");
+            });
+        });
+    document
+        .querySelectorAll(".service-header")
+        .forEach(header => {
+            header.addEventListener("click", event => {
+                event.stopPropagation();
+                header
+                    .closest(".service-section")
+                    .classList
+                    .toggle("collapsed");
+            });
+        });
+}
+
+async function loadStatus(){
+    try{
+        const renderedProviders = [];
+        for(const provider of PROVIDERS){
+			const response =
+				await fetch(provider.url);
+			const data =
+				await response.json();
+			if(provider.type === "mimecast"){
+				renderedProviders.push(
+					buildMimecastProvider(data)
+				);
+			}
+			if(provider.type === "statuspage"){
+				renderedProviders.push(
+					buildStatuspageProvider(data)
+				);
+			}
+		}
+
+        document.getElementById("providersContainer")
+            .innerHTML =
+                renderedProviders
+                    .map(renderProvider)
+                    .join("");
+		initializeCollapsibles();
+        document.getElementById("refreshTime")
+            .textContent =
+                new Date().toLocaleString("en-GB");
+
+    }
+    catch(error){
+
+        document.getElementById("providersContainer")
+            .innerHTML = `
+                <div class="provider-card">
+                    <div class="provider-header outage">
+                        <div class="provider-name">
+                            Dashboard
+                        </div>
+                        <div class="provider-status">
+                            Status Unavailable
+                        </div>
+                        <div>
+                            ${error.message}
+                        </div>
+
+                    </div>
+
+                </div>
+            `;
+    }
+}
+
+loadStatus();
+
+/* Refresh every 5 minutes */
+setInterval(loadStatus, 300000);
+</script>
+</body>
+</html>
